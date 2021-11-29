@@ -5,7 +5,9 @@ from  niconico_dl  import  NicoNico
 import nndownload
 import os
 from googletrans import Translator
+import threading
 from secret import TOKEN
+
 
 ##Used for story
 import random
@@ -32,14 +34,12 @@ class dork:
         self.name = name
         self.guild = guild_id
         self.nicknames=nicknames  #[]
-        print(self.nicknames)
         try:
             self.nicknames.remove('')
         except:
             pass
     def add_nickname(self,new_nick):
         self.nicknames.append(new_nick)
-        print(self.nicknames)
     def remove_nickname(self,to_remove,gid):
         try:
             self.nicknames.remove(to_remove)
@@ -75,7 +75,6 @@ def saveNicknames(mid,name,nn,g):
         if(len(words) < 3):
             continue
         if words[0] == str(mid) and words[3] == str(g):
-            print(g)
             words[2]+=';'+nn
             token=True
             lines.remove(line)
@@ -143,7 +142,6 @@ def mp4_mp3(name,timestamps=[],pname = None):
     os.remove(name) # deletes mp4 file
 
 def download_mp4s(url):
-    print("downloading mp4")
     #loops because this fails OFTEN because it kinda sucks
     done = False
     counter = 0
@@ -169,7 +167,7 @@ sayings = ["here is the [link](LINK) to your file","I have dumped your file onto
 
 #set up the bot with intents and whatnot
 intents = discord.Intents.all()
-client = commands.Bot(intents=intents,command_prefix='!')
+client = commands.Bot(intents=intents,command_prefix='-')
 
 #get nickname dic
 dic = getNicknames();
@@ -181,6 +179,9 @@ file.close()
 
 #discord doesnt allow japanese characters, so we have to translate them so they have a title
 translator = Translator()
+
+#create a global zip object for threading later
+zipObj = None 
 
 ##############################################END BOT INITIALIZATION CODE########################
 
@@ -229,16 +230,19 @@ async def mp3(ctx,*args):
            
 #send a playlist to someone   
 async def sendPlaylist(ctx,url,pname,timestamps):
+    global zipObj
     await ctx.send("getting mp3(s), this will take a bit, especially for large playlists")
     zipObj = ZipFile('songs.zip', 'w')         #make zip file
     urls=get_playlist_list(url)
+    lock = threading.Lock()
+    threads=[]
     for url in urls:
-        name=download_mp4s(url)
-        if not name == -1:
-            mp4_mp3(name,[])
-            zipObj.write(name+'.mp3')## add file to zip
-            os.remove(name+'.mp3')
-            print("downloaded "+name)
+        new_thread = threading.Thread(target=multiThreadDownload, args=(url,lock,))
+        new_thread.start()
+        threads.append(new_thread)
+    for t in threads:
+        t.join()
+       
             
     zipObj.close()                     ##close zip       
     url = "https://up1.fileditch.com/upload.php"     ##upload link to file website
@@ -256,6 +260,16 @@ async def sendPlaylist(ctx,url,pname,timestamps):
     words = words.replace("LINK",response_url)
     embed.description = words
     await ctx.send(embed = embed)
+
+def multiThreadDownload(url,lock):
+    global zipObj
+    name=download_mp4s(url)
+    if not name == -1:
+        mp4_mp3(name,[])
+        lock.acquire()
+        zipObj.write(name+'.mp3')## add file to zip
+        lock.release()
+        os.remove(name+'.mp3')
 
 #User wants one video              
 async def sendVideo(ctx,url,pname,timestamps):
