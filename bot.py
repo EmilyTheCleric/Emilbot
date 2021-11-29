@@ -167,7 +167,7 @@ sayings = ["here is the [link](LINK) to your file","I have dumped your file onto
 
 #set up the bot with intents and whatnot
 intents = discord.Intents.all()
-client = commands.Bot(intents=intents,command_prefix='!')
+client = commands.Bot(intents=intents,command_prefix='-')
 
 #get nickname dic
 dic = getNicknames();
