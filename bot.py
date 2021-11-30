@@ -199,7 +199,7 @@ client = commands.Bot(intents=intents,command_prefix=determine_prefix)
 
 @client.command(brief="sets a custom prefix for the server",
                 help="""syntax:
-                            !setprefix <prefix>       sets the bot to use a custom prefix""")
+                            setprefix <prefix>       sets the bot to use a custom prefix for this server""")
 @commands.guild_only()
 @commands.has_permissions(administrator=True)
 async def setprefix(ctx, *, prefixes=""):
