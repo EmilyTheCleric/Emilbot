@@ -162,12 +162,78 @@ def download_mp4s(url):
 
 
 ##############################################BOT INITIALIZATION CODE########################
-#said when a playlist is uploaded to website
-sayings = ["here is the [link](LINK) to your file","I have dumped your file onto [FileDitch](LINK)"]
+##########Following code based on: https://stackoverflow.com/questions/56796991/discord-py-changing-prefix-with-command
+
+def read_prefixes():
+    file = open("prefixes.txt",'r')
+    lines=file.read().split('\n')
+    file.close()
+    prefixes={}
+    for line in lines:
+        try:
+            gid = int(line.split(',')[0])
+            prefix=line.split(',')[1]
+            prefixes[gid]=prefix
+        except:
+            print(line)
+    return prefixes
+              
+custom_prefixes = read_prefixes()
+
+
+#You'd need to have some sort of persistance here,
+#possibly using the json module to save and load
+#or a database                
+default_prefixes = ['!']
+
+async def determine_prefix(bot, message):
+    guild = message.guild
+    if guild:
+        return custom_prefixes.get(guild.id, default_prefixes)
+    else:
+        return default_prefixes
 
 #set up the bot with intents and whatnot
 intents = discord.Intents.all()
-client = commands.Bot(intents=intents,command_prefix='-')
+client = commands.Bot(intents=intents,command_prefix=determine_prefix)
+
+@client.command(brief="sets a custom prefix for the server",
+                help="""syntax:
+                            !setprefix <prefix>       sets the bot to use a custom prefix""")
+@commands.guild_only()
+@commands.has_permissions(administrator=True)
+async def setprefix(ctx, *, prefixes=""):
+    if(not len(prefixes.split(" "))==1):
+       await ctx.send("Error, prefixes can not have spaces")
+       return
+    alterPrefixFile(ctx.guild.id,(prefixes.split() or default_prefixes)[0])
+    custom_prefixes[ctx.guild.id] = prefixes.split() or default_prefixes
+    await ctx.send("Prefix set!")
+
+def alterPrefixFile(gid,prefix):
+    file = open("prefixes.txt",'r')
+    lines=file.read().split('\n')#get lines
+    file.close()
+    found = False
+    for line in lines:#iterate through lines
+        data=line.split(',')
+        if data[0] == str(gid):#if we found the guild id
+            found=True
+            lines.remove(line)
+            data[1]=prefix
+            lines.append(",".join(data))#change the prefix
+            break
+    if not found:#otherwise add it to the end
+        lines.append(str(gid)+','+prefix)
+    newFile='\n'.join(lines)
+    file=open('prefixes.txt','w')#write a new file
+    file.write(newFile)
+    file.close()
+    
+######################End taken code########################################
+
+#said when a playlist is uploaded to website
+sayings = ["here is the [link](LINK) to your file","I have dumped your file onto [FileDitch](LINK)"]
 
 #get nickname dic
 dic = getNicknames();
@@ -181,7 +247,11 @@ file.close()
 translator = Translator()
 
 #create a global zip object for threading later
-zipObj = None 
+zipObj = None
+
+
+
+
 
 ##############################################END BOT INITIALIZATION CODE########################
 
@@ -194,7 +264,12 @@ async def on_ready():
 
 #!mp3 url -p pname -t timestamp start timestamp end   
 @client.command(brief="sends mp3 file from youtube url",
-                help="syntax:\n!mp3 <url> [options] \n\noptions:\n-p <name>                     specify what name you want the mp3 file to have\n-t <start_time> *<end_time>   specify what time(in seconds)the clip should start and end at")
+                help="""syntax:
+                            mp3 <url> [options]
+
+                        options:
+                            -p <name>                     specify what name you want the mp3 file to have
+                            -t <start_time> *<end_time>   specify what time(in seconds)the clip should start and end at""")
 async def mp3(ctx,*args):
     if(len(args)<1):#maybe call nicknames help function?
         await ctx.send("Error, no url inputted")
@@ -318,10 +393,10 @@ async def sendNicoVideo(ctx,url,pname,timestamps):
 ######################################NICKNAME COMMAND#####################################
 @client.command(brief="allows for additional nicknames for members",
                 help="""syntax:
-                        !nickname:                              shows all of your nicknames on this server
-                        !nickname <member>:                     shows all of that member's nickname on this server
-                        !nickname <member> add <nickname>:      adds a nickname to that member
-                        !nickname <member> remove <nickname>:   removes a nickname from a user (only for self or admins)""")
+                        nickname:                              shows all of your nicknames on this server
+                        nickname <member>:                     shows all of that member's nickname on this server
+                        nickname <member> add <nickname>:      adds a nickname to that member
+                        nickname <member> remove <nickname>:   removes a nickname from a user (only for self or admins)""")
 async def nickname(ctx,*args):
     if(len(args)==0):#send author's nicknames
         member = ctx.message.author
@@ -412,9 +487,9 @@ async def sendNickname(ctx,member):
 ###################################MISC COMMANDS########################################
 @client.command(brief="generates a random story from inputted words",
                 help="""syntax:
-                        !story <words>:                 generates a random story from selected words
-                        !story <words> <num_words>:     generates a random story with a word count of num_words
-                        !story <words>:                 MAX generates a random story with maximum length possible""")
+                        story <words>:                 generates a random story from selected words
+                        story <words> <num_words>:     generates a random story with a word count of num_words
+                        story <words>:                 MAX generates a random story with maximum length possible""")
 async def story(ctx,*args):
     words=list(args)
     try:
@@ -440,9 +515,9 @@ async def story(ctx,*args):
 
 @client.command(brief="repeats a phrase a number of times",
                 help="""syntax:
-                        !repeat <phrase>           repeats a phrase 50 times
-                        !repeat <phrase> <num>     repeats a phrase num times
-                        !repeat <phrase> MAX       repeats a phrase the maximum message length""")
+                        repeat <phrase>           repeats a phrase 50 times
+                        repeat <phrase> <num>     repeats a phrase num times
+                        repeat <phrase> MAX       repeats a phrase the maximum message length""")
 async def repeat(ctx,*args):
     words=list(args)
     try:
